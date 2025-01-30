@@ -6,6 +6,7 @@ import socket
 import time
 import re
 import argparse
+import select
 
 verbose = 0
 inited = threading.Event()
@@ -81,22 +82,29 @@ def setup_loop(address, size):
 def rtt_loop(address, size):
     info('Connecting to RTT')
     inited.wait(timeout=5)
+    def _loop():
+        while True:
+            ready = select.select([rtt], [], [], 0.1)  # 100ms timeout
+            if ready[0]:
+                try:
+                    ret = rtt.recv(64)
+                    if len(ret) == 0:
+                        raise ConnectionAbortedError()
+                    print(ret.decode(), end='', flush=True)
+                except BlockingIOError:
+                    continue  # No data available yet
     while True:
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect(('127.0.0.1', 9090))
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as rtt:
+                rtt.connect(('127.0.0.1', 9090))
+                rtt.setblocking(False)
                 info('RTT Connected\n')
-                while True:
-                    ret = s.recv(1024)
-                    if len(ret) == 0:
-                        time.sleep(1)
-                        break
-                    print(ret.decode(), end='', flush=True)
+                _loop()
         except ConnectionRefusedError:
             info('.', end='')
             time.sleep(1)
-        except (ConnectionResetError, BrokenPipeError):
-            info('RTT Disconnected', end='')
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            info('RTT Disconnected')
             time.sleep(1)
 
 if __name__ == '__main__':

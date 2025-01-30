@@ -28,13 +28,13 @@ def info(msg, end='\n'):
     print(f'{BColors.BOLD}{msg}{BColors.ENDC}', end=end, flush=True)
 
 def setup_loop(address, size):
+    server_stop_cmd = b'rtt server stop 9090\n'
+    server_start_cmd = b'rtt server start 9090 0\n'
+
     def setup(telnet, address, size):
         setup_cmd = f'rtt setup {address} {size} "SEGGER RTT"\n'.encode()
         core_start_cmd = b'rtt start\n'
         core_stop_cmd = b'rtt stop\n'
-
-        server_stop_cmd = b'rtt server stop 9090\n'
-        server_start_cmd = b'rtt server start 9090 0\n'
 
         telnet.read_until(b'Open On-Chip Debugger')
         debug('\nConnected to OpenOCD')
@@ -54,14 +54,16 @@ def setup_loop(address, size):
                 break
             time.sleep(1)
 
+        telnet.write(server_stop_cmd)
         telnet.write(server_start_cmd)
         debug('Start RTT server')
         telnet.expect([re.compile(b'^(.*?)Listening on port ([0-9]+?) for rtt connections',flags=re.DOTALL)],timeout=1.0)
         debug('RTT server online\n')
 
     def watch(telnet):
-        telnet.expect([re.compile(b'^(.*?)rtt: Failed',flags=re.DOTALL)])
+        telnet.expect([re.compile(b'^(.*?)rtt: Failed',flags=re.DOTALL), re.compile(b'^(.*?)rtt: Up-channel \\d* is not active',flags=re.DOTALL)])
         debug('RTT terminated\n')
+        telnet.write(server_stop_cmd)
 
     while True:
         try:

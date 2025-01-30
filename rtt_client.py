@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
+import argparse
+import re
+import select
+import socket
 from telnetlib import Telnet
 import threading
-import socket
 import time
-import re
-import argparse
-import select
 
 verbose = 0
 inited = threading.Event()
+
 class BColors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -38,7 +39,7 @@ def setup_loop(address, size):
         core_stop_cmd = b'rtt stop\n'
 
         telnet.read_until(b'Open On-Chip Debugger')
-        debug('\nConnected to OpenOCD')
+        debug('Connected to OpenOCD')
 
         telnet.write(server_stop_cmd)
         telnet.write(core_stop_cmd)
@@ -59,11 +60,11 @@ def setup_loop(address, size):
         telnet.write(server_start_cmd)
         debug('Start RTT server')
         telnet.expect([re.compile(b'^(.*?)Listening on port ([0-9]+?) for rtt connections',flags=re.DOTALL)],timeout=1.0)
-        debug('RTT server online\n')
+        debug('RTT server online')
 
     def watch(telnet):
         telnet.expect([re.compile(b'^(.*?)rtt: Failed',flags=re.DOTALL), re.compile(b'^(.*?)rtt: Up-channel \\d* is not active',flags=re.DOTALL)])
-        debug('RTT terminated\n')
+        debug('RTT terminated')
         telnet.write(server_stop_cmd)
 
     while True:
@@ -80,7 +81,7 @@ def setup_loop(address, size):
             time.sleep(1)
 
 def rtt_loop(address, size):
-    info('Connecting to RTT')
+    info('- Connecting to RTT -')
     inited.wait(timeout=5)
     def _loop():
         while True:
@@ -98,14 +99,16 @@ def rtt_loop(address, size):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as rtt:
                 rtt.connect(('127.0.0.1', 9090))
                 rtt.setblocking(False)
-                info('RTT Connected\n')
+                info('- RTT Connected -\n')
                 _loop()
         except ConnectionRefusedError:
             info('.', end='')
             time.sleep(1)
         except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
-            info('RTT Disconnected')
+            info('- RTT Disconnected -')
             time.sleep(1)
+        except KeyboardInterrupt:
+            exit(0)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

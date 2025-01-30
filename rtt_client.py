@@ -33,7 +33,7 @@ def setup_loop(address, size):
     server_start_cmd = b'rtt server start 9090 0\n'
 
     def setup(telnet, address, size):
-        setup_cmd = f'rtt setup {address} {size} "SEGGER RTT"\n'.encode()
+        setup_cmd = f'rtt setup {address} {size} "SEGGER RTT"\nrtt polling_interval 50\n'.encode()
         core_start_cmd = b'rtt start\n'
         core_stop_cmd = b'rtt stop\n'
 
